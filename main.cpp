@@ -25,19 +25,23 @@ int main() {
 
   float escala = 0.01f;
 
+  bool modoSolido = false;
+
   while (!WindowShouldClose()) {
     UpdateCamera(&camera, CAMERA_ORBITAL);
+
+    // Detectar si el usuario presiona la barra espaciadora
+    if (IsKeyPressed(KEY_SPACE)) {
+      modoSolido = !modoSolido; // Alternar el estado
+    }
 
     BeginDrawing();
     ClearBackground(DARKGRAY);
 
     BeginMode3D(camera);
 
-    // Dibujar el modelo usando líneas (Wireframe)
     // Recorremos los índices de 3 en 3 (porque ahora son triángulos)
     for (size_t i = 0; i < espada.caras_indices.size(); i += 3) {
-      // Tema 1.3: Escalamiento. Aplicamos la escala a cada vértice antes de
-      // pasarlo a la gráfica
       Vector3 v1 =
           Vector3Scale(espada.vertices[espada.caras_indices[i]], escala);
       Vector3 v2 =
@@ -45,16 +49,34 @@ int main() {
       Vector3 v3 =
           Vector3Scale(espada.vertices[espada.caras_indices[i + 2]], escala);
 
-      DrawLine3D(v1, v2, colorMalla);
-      DrawLine3D(v2, v3, colorMalla);
-      DrawLine3D(v3, v1, colorMalla);
+      if (modoSolido) {
+        // Modo Sólido: Dibujar la cara rellena
+        DrawTriangle3D(v1, v2, v3, LIGHTGRAY);
+
+        // Truco visual: Dibujar el borde ligeramente más oscuro para distinguir
+        // los polígonos
+        DrawLine3D(v1, v2, GRAY);
+        DrawLine3D(v2, v3, GRAY);
+        DrawLine3D(v3, v1, GRAY);
+      } else {
+        // Modo Alámbrico original
+        DrawLine3D(v1, v2, colorMalla);
+        DrawLine3D(v2, v3, colorMalla);
+        DrawLine3D(v3, v1, colorMalla);
+      }
     }
 
     DrawGrid(20, 1.0f); // Rejilla más grande para referencia
     EndMode3D();
 
     DrawFPS(10, 10);
-    DrawText("Visor 3D Estático - Malla de Espada", 10, 40, 20, LIGHTGRAY);
+    if (modoSolido) {
+      DrawText("Visor 3D - Modo: Solido (Presiona ESPACIO para cambiar)", 10,
+               40, 20, LIGHTGRAY);
+    } else {
+      DrawText("Visor 3D - Modo: Alambrico (Presiona ESPACIO para cambiar)", 10,
+               40, 20, colorMalla);
+    }
 
     EndDrawing();
   }
