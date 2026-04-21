@@ -1,4 +1,5 @@
 #include "parser.h"
+#include "raymath.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -36,13 +37,31 @@ Modelo3D cargar_obj(const std::string &ruta_archivo) {
         vertices_cara.push_back(std::stoi(id_str) - 1);
       }
 
-      // Triangulación en abanico (Fan Triangulation)
-      // Convierte polígonos de N lados en triángulos
+      // Triangulación en abanico y cálculo de NORMALES
       if (vertices_cara.size() >= 3) {
         for (size_t i = 1; i < vertices_cara.size() - 1; ++i) {
-          modelo.caras_indices.push_back(vertices_cara[0]);
-          modelo.caras_indices.push_back(vertices_cara[i]);
-          modelo.caras_indices.push_back(vertices_cara[i + 1]);
+          Cara nueva_cara;
+          nueva_cara.v1 = vertices_cara[0];
+          nueva_cara.v2 = vertices_cara[i];
+          nueva_cara.v3 = vertices_cara[i + 1];
+
+          // Obtenemos los 3 puntos en el espacio 3D
+          Vector3 p1 = modelo.vertices[nueva_cara.v1];
+          Vector3 p2 = modelo.vertices[nueva_cara.v2];
+          Vector3 p3 = modelo.vertices[nueva_cara.v3];
+
+          // 1. Calculamos dos vectores en el plano del triángulo
+          Vector3 vectorA = Vector3Subtract(p2, p1);
+          Vector3 vectorB = Vector3Subtract(p3, p1);
+
+          // 2. Calculamos el Producto Cruz para obtener el vector perpendicular
+          Vector3 normal_calculada = Vector3CrossProduct(vectorA, vectorB);
+
+          // 3. Normalizamos el vector (longitud = 1)
+          nueva_cara.normal = Vector3Normalize(normal_calculada);
+
+          // Guardamos la cara ya con su normal calculada
+          modelo.caras.push_back(nueva_cara);
         }
       }
     }
@@ -50,6 +69,7 @@ Modelo3D cargar_obj(const std::string &ruta_archivo) {
 
   archivo.close();
   std::cout << "Modelo cargado exitosamente. Vértices: "
-            << modelo.vertices.size() << std::endl;
+            << modelo.vertices.size()
+            << " | Caras (Triángulos): " << modelo.caras.size() << std::endl;
   return modelo;
 }

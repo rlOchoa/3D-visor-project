@@ -1,4 +1,4 @@
-#include "parser.h" // Importamos nuestro nuevo archivo
+#include "parser.h"
 #include "raylib.h"
 #include "raymath.h"
 #include <cmath>
@@ -12,12 +12,11 @@
 #pragma GCC diagnostic pop
 
 int main() {
-  const int screenWidth = 1280;
-  const int screenHeight = 720;
   // Agregamos la bandera FLAG_WINDOW_ALWAYS_RUN para que no se pause si salimos
   // de la ventana
-  SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_ALWAYS_RUN);
-  InitWindow(screenWidth, screenHeight, "Visor 3D Ligero - aLoonz");
+  SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_ALWAYS_RUN |
+                 FLAG_MSAA_4X_HINT);
+  InitWindow(1280, 720, "Visor 3D Ligero - aLoonz");
 
   Font miFuente =
       LoadFontEx("./JetBrainsMono/JetBrainsMonoNerdFont-Bold.ttf", 18, 0, 0);
@@ -40,7 +39,10 @@ int main() {
   float escala = 1.0f; // Escala dinamica dado el Bounding Box
   bool modoSolido = false;
 
-  // Configuración visual básica para que el botón no desentone con tu fondo
+  // --- CONFIGURACIÓN DE LUZ (Tema 2.4.2) ---
+  // Definimos una dirección de luz estática que viene desde arriba y un lado
+  Vector3 lightDir = Vector3Normalize({0.5f, 1.0f, 0.5f});
+
   GuiSetStyle(DEFAULT, TEXT_SIZE, 14);
 
   while (!WindowShouldClose()) {
@@ -48,21 +50,15 @@ int main() {
     // --- DRAG & DROP y Auto-escalado ---
     if (IsFileDropped()) {
       FilePathList archivosSoltados = LoadDroppedFiles();
-
-      // Verificamos que soltaron al menos un archivo
       if (archivosSoltados.count > 0) {
         std::string rutaArchivo = archivosSoltados.paths[0];
-
-        // Verificamos que la extensión sea .obj (Raylib tiene una función para
-        // esto)
         if (IsFileExtension(rutaArchivo.c_str(), ".obj")) {
           // Cargamos el nuevo modelo sobrescribiendo el anterior
           modeloActual = cargar_obj(rutaArchivo);
           modeloCargado = true;
 
           // ALGORITMO DE AUTO-ESCALADO (Bounding Box)
-          // Encontramos la coordenada más extrema del modelo
-          float max_val = 0.0f;
+          float max_val = 0.01f;
           for (const auto &v : modeloActual.vertices) {
             if (std::fabs(v.x) > max_val)
               max_val = std::fabs(v.x);
@@ -71,44 +67,47 @@ int main() {
             if (std::fabs(v.z) > max_val)
               max_val = std::fabs(v.z);
           }
-
-          // Ajustamos la escala para que el modelo más grande mida siempre ~15
-          // unidades
-          escala = (max_val > 0.0f) ? (15.0f / max_val) : 1.0f;
+          escala = 15.0f / max_val;
         }
       }
-      // Liberamos la memoria de la lista de rutas
       UnloadDroppedFiles(archivosSoltados);
     }
-    // ----
 
     UpdateCamera(&camera, CAMERA_ORBITAL);
-
-    // Detectar si el usuario presiona la barra espaciadora
     if (IsKeyPressed(KEY_SPACE)) {
-      modoSolido = !modoSolido; // Alternar el estado
+      modoSolido = !modoSolido;
     }
 
     BeginDrawing();
     ClearBackground(DARKGRAY);
 
     BeginMode3D(camera);
-    // Solo intentamos dibujar si realmente hay un modelo cargado
     if (modeloCargado) {
-      // Recorremos los índices de 3 en 3 (porque ahora son triángulos)
-      for (size_t i = 0; i < modeloActual.caras_indices.size(); i += 3) {
-        Vector3 v1 = Vector3Scale(
-            modeloActual.vertices[modeloActual.caras_indices[i]], escala);
-        Vector3 v2 = Vector3Scale(
-            modeloActual.vertices[modeloActual.caras_indices[i + 1]], escala);
-        Vector3 v3 = Vector3Scale(
-            modeloActual.vertices[modeloActual.caras_indices[i + 2]], escala);
-
+      for (const auto &cara : modeloActual.caras) {
+        Vector3 v1 = Vector3Scale(modeloActual.vertices[cara.v1], escala);
+        Vector3 v2 = Vector3Scale(modeloActual.vertices[cara.v2], escala);
+        Vector3 v3 = Vector3Scale(modeloActual.vertices[cara.v3], escala);
         if (modoSolido) {
-          DrawTriangle3D(v1, v2, v3, LIGHTGRAY);
-          DrawLine3D(v1, v2, GRAY);
-          DrawLine3D(v2, v3, GRAY);
-          DrawLine3D(v3, v1, GRAY);
+          // CÁLCULO DE ILUMINACIÓN DIFUSA (Lambert)
+          // El producto punto nos da el coseno del ángulo entre normal y luz
+          float dot = Vector3DotProduct(cara.normal, lightDir);
+          if (dot < 0.0f)
+            dot = 0.0f; // Evitamos luz negativa
+
+          // Intensidad = (Difusa * dot) + Ambiental (0.3 para no ver negro
+          // total)
+          float intensidad = (dot * 0.7f) + 0.3f;
+
+          Color colorFinal = {(unsigned char)(180 * intensidad),
+                              (unsigned char)(180 * intensidad),
+                              (unsigned char)(180 * intensidad), 255};
+
+          DrawTriangle3D(v1, v2, v3, colorFinal);
+
+          // Líneas de contorno sutiles para resaltar la geometría
+          DrawLine3D(v1, v2, (Color){30, 30, 30, 100});
+          DrawLine3D(v2, v3, (Color){30, 30, 30, 100});
+          DrawLine3D(v3, v1, (Color){30, 30, 30, 100});
         } else {
           DrawLine3D(v1, v2, colorMalla);
           DrawLine3D(v2, v3, colorMalla);
@@ -121,12 +120,8 @@ int main() {
     EndMode3D();
 
     // Interface responsiva
-    // Obtenemos las dimensiones reales de la ventana en este fotograma exacto
-    int anchoDinamico = GetScreenWidth();
-    int altoDinamico = GetScreenHeight();
-
-    // La interface va a partir de aqui
-    DrawFPS(10, 10);
+    int w = GetScreenWidth();
+    int h = GetScreenHeight();
 
     // Botón y Textos siempre visibles
     DrawFPS(10, 10);
@@ -135,8 +130,7 @@ int main() {
     DrawText(textoModo, 10, 35, 14, modoSolido ? LIGHTGRAY : colorMalla);
 
     // El botón se ancla al ancho dinámico menos un margen
-    if (GuiButton((Rectangle){(float)anchoDinamico - 170, 10, 150, 25},
-                  "Alternar Modo")) {
+    if (GuiButton((Rectangle){(float)w - 170, 10, 150, 25}, "Alternar Modo")) {
       modoSolido = !modoSolido;
     }
 
@@ -144,8 +138,7 @@ int main() {
     if (!modeloCargado) {
       const char *msg = "Arrastra un archivo .obj a esta ventana";
       int msgWidth = MeasureText(msg, 20);
-      DrawText(msg, (anchoDinamico - msgWidth) / 2, altoDinamico / 2, 20,
-               LIGHTGRAY);
+      DrawText(msg, (w - msgWidth) / 2, h / 2, 20, LIGHTGRAY);
     }
 
     EndDrawing();

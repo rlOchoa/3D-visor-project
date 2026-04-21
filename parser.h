@@ -1,11 +1,17 @@
 #pragma once
-#include <vector>
-#include <string>
 #include "raylib.h"
+#include <string>
+#include <vector>
 
-struct Modelo3D {
-    std::vector<Vector3> vertices;
-    std::vector<int> caras_indices;
+// Nueva estructura para guardar una cara completa
+struct Cara {
+  int v1, v2, v3; // Indices de los vertices
+  Vector3 normal; // El vector normal calculado para esta cara
 };
 
-Modelo3D cargar_obj(const std::string& ruta_archivo);
+struct Modelo3D {
+  std::vector<Vector3> vertices;
+  std::vector<Cara> caras; // Reemplar caras_indices por un arreglo de Caras
+};
+
+Modelo3D cargar_obj(const std::string &ruta_archivo);
