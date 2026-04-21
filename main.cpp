@@ -37,7 +37,7 @@ int main() {
   SetTargetFPS(144);
 
   Color colorMalla = {50, 114, 172, 255};
-  float escala = 0.01f;
+  float escala = 1.0f; // Escala dinamica dado el Bounding Box
   bool modoSolido = false;
 
   // Configuración visual básica para que el botón no desentone con tu fondo
@@ -45,7 +45,7 @@ int main() {
 
   while (!WindowShouldClose()) {
 
-    // --- DRAG & DROP ---
+    // --- DRAG & DROP y Auto-escalado ---
     if (IsFileDropped()) {
       FilePathList archivosSoltados = LoadDroppedFiles();
 
@@ -59,6 +59,22 @@ int main() {
           // Cargamos el nuevo modelo sobrescribiendo el anterior
           modeloActual = cargar_obj(rutaArchivo);
           modeloCargado = true;
+
+          // ALGORITMO DE AUTO-ESCALADO (Bounding Box)
+          // Encontramos la coordenada más extrema del modelo
+          float max_val = 0.0f;
+          for (const auto &v : modeloActual.vertices) {
+            if (std::fabs(v.x) > max_val)
+              max_val = std::fabs(v.x);
+            if (std::fabs(v.y) > max_val)
+              max_val = std::fabs(v.y);
+            if (std::fabs(v.z) > max_val)
+              max_val = std::fabs(v.z);
+          }
+
+          // Ajustamos la escala para que el modelo más grande mida siempre ~15
+          // unidades
+          escala = (max_val > 0.0f) ? (15.0f / max_val) : 1.0f;
         }
       }
       // Liberamos la memoria de la lista de rutas
@@ -77,7 +93,6 @@ int main() {
     ClearBackground(DARKGRAY);
 
     BeginMode3D(camera);
-
     // Solo intentamos dibujar si realmente hay un modelo cargado
     if (modeloCargado) {
       // Recorremos los índices de 3 en 3 (porque ahora son triángulos)
@@ -105,31 +120,32 @@ int main() {
     DrawGrid(20, 1.0f);
     EndMode3D();
 
+    // Interface responsiva
+    // Obtenemos las dimensiones reales de la ventana en este fotograma exacto
+    int anchoDinamico = GetScreenWidth();
+    int altoDinamico = GetScreenHeight();
+
     // La interface va a partir de aqui
     DrawFPS(10, 10);
 
-    // Texto descriptivo
+    // Botón y Textos siempre visibles
+    DrawFPS(10, 10);
+    const char *textoModo =
+        modoSolido ? "Modo Actual: Solido" : "Modo Actual: Alambrico";
+    DrawText(textoModo, 10, 35, 14, modoSolido ? LIGHTGRAY : colorMalla);
+
+    // El botón se ancla al ancho dinámico menos un margen
+    if (GuiButton((Rectangle){(float)anchoDinamico - 170, 10, 150, 25},
+                  "Alternar Modo")) {
+      modoSolido = !modoSolido;
+    }
+
+    // Mensaje centrado si no hay modelo, usando las dimensiones dinámicas
     if (!modeloCargado) {
-      // Si no hay modelo, mostrar instruccion en el centro
       const char *msg = "Arrastra un archivo .obj a esta ventana";
       int msgWidth = MeasureText(msg, 20);
-      DrawText(msg, (screenWidth - msgWidth) / 2, screenHeight / 2, 20,
+      DrawText(msg, (anchoDinamico - msgWidth) / 2, altoDinamico / 2, 20,
                LIGHTGRAY);
-
-    } else {
-      // Si hay un modelo, mostramos la UI normal
-      const char *textoModo =
-          modoSolido ? "Modo Actual: Solido" : "Modo Actual: Alambrico";
-      DrawTextEx(miFuente, textoModo, (Vector2){10, 35}, 18, 1,
-                 modoSolido ? LIGHTGRAY : colorMalla);
-
-      // GuiButton devuelve 'true' justo en el fotograma en que el usuario le
-      // hace clic. Botón movido a la esquina superior derecha: Posición X =
-      // anchoPantalla(1280) - anchoBoton(150) - margen(20) = 1110
-      if (GuiButton((Rectangle){(float)screenWidth - 170, 10, 150, 25},
-                    "Alternar Modo")) {
-        modoSolido = !modoSolido;
-      }
     }
 
     EndDrawing();
