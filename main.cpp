@@ -2,10 +2,23 @@
 #include "raylib.h"
 #include "raymath.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#define RAYGUI_IMPLEMENTATION
+#include "raygui.h"
+#pragma GCC diagnostic pop
+
 int main() {
   const int screenWidth = 1280;
   const int screenHeight = 720;
   InitWindow(screenWidth, screenHeight, "Visor 3D Ligero - aLoonz");
+
+  // --- SETUP DE FUENTE PERSONALIZADA ---
+  // Si quieres usar una tipografía cyberpunk o de terminal, descomenta esto
+  // y pon la ruta a tu archivo .ttf
+  Font miFuente = LoadFontEx("JetBrainsMonoNerdFont-Light.ttf", 16, 0, 0);
+  GuiSetFont(miFuente); // Aplica la fuente a los botones de RayGUI
 
   // Cargamos el modelo ANTES de iniciar el bucle principal
   Modelo3D espada = cargar_obj("Sword_test.obj");
@@ -20,12 +33,13 @@ int main() {
 
   SetTargetFPS(144);
 
-  // Tu color favorito #3272AC convertido a formato RGBA de Raylib
   Color colorMalla = {50, 114, 172, 255};
-
   float escala = 0.01f;
 
   bool modoSolido = false;
+
+  // Configuración visual básica para que el botón no desentone con tu fondo
+  GuiSetStyle(DEFAULT, TEXT_SIZE, 14);
 
   while (!WindowShouldClose()) {
     UpdateCamera(&camera, CAMERA_ORBITAL);
@@ -69,13 +83,24 @@ int main() {
     DrawGrid(20, 1.0f); // Rejilla más grande para referencia
     EndMode3D();
 
+    // La interface va a partir de aqui
     DrawFPS(10, 10);
-    if (modoSolido) {
-      DrawText("Visor 3D - Modo: Solido (Presiona ESPACIO para cambiar)", 10,
-               40, 20, LIGHTGRAY);
-    } else {
-      DrawText("Visor 3D - Modo: Alambrico (Presiona ESPACIO para cambiar)", 10,
-               40, 20, colorMalla);
+
+    // Texto descriptivo dinámico
+    const char *textoModo =
+        modoSolido ? "Modo Actual: Solido" : "Modo Actual: Alambrico";
+    // Si cargaste una fuente personalizada arriba, usa esta línea en lugar de
+    // DrawText:
+    DrawTextEx(miFuente, textoModo, (Vector2){10, 35}, 14, 1,
+               modoSolido ? LIGHTGRAY : colorMalla);
+    // DrawText(textoModo, 10, 35, 14, modoSolido ? LIGHTGRAY : colorMalla);
+
+    // GuiButton devuelve 'true' justo en el fotograma en que el usuario le hace
+    // clic.
+    // Botón movido a la esquina superior derecha:
+    // Posición X = anchoPantalla(1280) - anchoBoton(150) - margen(20) = 1110
+    if (GuiButton((Rectangle){1110, 10, 150, 25}, "Alternar Modo")) {
+      modoSolido = !modoSolido;
     }
 
     EndDrawing();
