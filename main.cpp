@@ -12,8 +12,6 @@
 #pragma GCC diagnostic pop
 
 int main() {
-  // Agregamos la bandera FLAG_WINDOW_ALWAYS_RUN para que no se pause si salimos
-  // de la ventana
   SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_ALWAYS_RUN |
                  FLAG_MSAA_4X_HINT);
   InitWindow(1280, 720, "Visor 3D Ligero - Roman Ochoa Oliva");
@@ -22,7 +20,6 @@ int main() {
       LoadFontEx("./JetBrainsMono/JetBrainsMonoNerdFont-Bold.ttf", 18, 0, 0);
   GuiSetFont(miFuente);
 
-  // Se inicializa un "modelo vacio"
   Modelo3D modeloActual;
   bool modeloCargado = false;
 
@@ -36,14 +33,14 @@ int main() {
   SetTargetFPS(144);
 
   // --- VARIABLES DE ESTADO PARA UI ---
-  Color colorMalla = {50, 114, 172, 255};      // Default blue
-  Vector3 rotacionManual = {0.0f, 0.0f, 0.0f}; // Grados de rotación X, Y, Z
+  Color colorMalla = {50, 114, 172, 255};
+  Vector3 rotacionManual = {0.0f, 0.0f, 0.0f};
   float escalaManual = 1.0f;
-  float escalaBase = 1.0f; // Escala dinamica dado el Bounding Box
+  float escalaBase = 1.0f;
   bool modoSolido = false;
 
   // --- CONFIGURACIÓN DE LUZ (Tema 2.4.2) ---
-  Vector3 lightDir = Vector3Normalize({0.5f, 1.0f, 0.5f});
+  Vector3 lightRawDir = {0.5f, 1.0f, 0.5f};
 
   GuiSetStyle(DEFAULT, TEXT_SIZE, 14);
 
@@ -55,11 +52,9 @@ int main() {
       if (archivosSoltados.count > 0) {
         std::string rutaArchivo = archivosSoltados.paths[0];
         if (IsFileExtension(rutaArchivo.c_str(), ".obj")) {
-          // Cargamos el nuevo modelo sobrescribiendo el anterior
           modeloActual = cargar_obj(rutaArchivo);
           modeloCargado = true;
 
-          // Reset de rotación al cargar un nuevo modelo
           rotacionManual = {0.0f, 0.0f, 0.0f};
           escalaManual = 1.0f;
 
@@ -84,13 +79,13 @@ int main() {
       modoSolido = !modoSolido;
 
     // MATRIZ DE TRANSFORMACIÓN AFÍN (Tema 1.3)
-    // Convertimos grados a radianes y generamos la matriz de rotación combinada
     Matrix matRotacion = MatrixRotateXYZ((Vector3){rotacionManual.x * DEG2RAD,
                                                    rotacionManual.y * DEG2RAD,
                                                    rotacionManual.z * DEG2RAD});
 
-    // Escala final combianndo Bounding Box automático y el slider dinámico.
     float escalaFinal = escalaBase * escalaManual;
+
+    Vector3 lightDir = Vector3Normalize(lightRawDir);
 
     BeginDrawing();
     ClearBackground(DARKGRAY);
@@ -167,41 +162,52 @@ int main() {
       DrawText(msg, (w - msgWidth) / 2, h / 2, 20, LIGHTGRAY);
     }
 
-    // Panel anclado a la derecha
     float panelX = w - 240.0f;
-    GuiPanel((Rectangle){panelX, 10, 230, 410},
+    GuiPanel((Rectangle){panelX, 10, 230, 500},
              "Herramientas (Transformaciones)");
 
-    // El botón se ancla al ancho dinámico menos un margen
     if (GuiButton((Rectangle){panelX + 15, 40, 200, 25}, "Alternar Modo")) {
       modoSolido = !modoSolido;
     }
 
-    // Sliders de Rotación Afín
-    GuiLabel((Rectangle){panelX + 15, 80, 100, 20}, "Rotacion X");
-    GuiSliderBar((Rectangle){panelX + 90, 80, 120, 20}, "",
+    // --- TRASNFORMACIONES ---
+    GuiLabel((Rectangle){panelX + 15, 75, 100, 20}, "Rotacion X");
+    GuiSliderBar((Rectangle){panelX + 90, 75, 120, 20}, "",
                  TextFormat("%.0f", rotacionManual.x), &rotacionManual.x, 0.0f,
                  360.0f);
 
-    GuiLabel((Rectangle){panelX + 15, 110, 100, 20}, "Rotacion Y");
-    GuiSliderBar((Rectangle){panelX + 90, 110, 120, 20}, "",
+    GuiLabel((Rectangle){panelX + 15, 105, 100, 20}, "Rotacion Y");
+    GuiSliderBar((Rectangle){panelX + 90, 105, 120, 20}, "",
                  TextFormat("%.0f", rotacionManual.y), &rotacionManual.y, 0.0f,
                  360.0f);
 
-    GuiLabel((Rectangle){panelX + 15, 140, 100, 20}, "Rotacion Z");
-    GuiSliderBar((Rectangle){panelX + 90, 140, 120, 20}, "",
+    GuiLabel((Rectangle){panelX + 15, 135, 100, 20}, "Rotacion Z");
+    GuiSliderBar((Rectangle){panelX + 90, 135, 120, 20}, "",
                  TextFormat("%.0f", rotacionManual.z), &rotacionManual.z, 0.0f,
                  360.0f);
 
-    // Nuevo Slider de Escalamiento Manual (Rango de 0.1x a 3.0x el tamaño
-    // original)
     GuiLabel((Rectangle){panelX + 15, 165, 100, 20}, "Escala");
     GuiSliderBar((Rectangle){panelX + 90, 165, 120, 20}, "",
                  TextFormat("%.2fx", escalaManual), &escalaManual, 0.1f, 3.0f);
 
-    // Selector de Color
-    GuiLabel((Rectangle){panelX + 15, 180, 100, 20}, "Color del Modelo:");
-    GuiColorPicker((Rectangle){panelX + 45, 210, 140, 140}, "", &colorMalla);
+    // --- ILUMINACION DINÁMICA ---
+    GuiLabel((Rectangle){panelX + 15, 195, 100, 20}, "Luz Vector X");
+    GuiSliderBar((Rectangle){panelX + 90, 195, 120, 20}, "",
+                 TextFormat("%.2f", lightRawDir.x), &lightRawDir.x, 0.0f, 1.0f);
+
+    GuiLabel((Rectangle){panelX + 15, 225, 100, 20}, "Luz Vector Y");
+    GuiSliderBar((Rectangle){panelX + 90, 225, 120, 20}, "",
+                 TextFormat("%.2f", lightRawDir.y), &lightRawDir.y, -1.0f,
+                 1.0f);
+
+    GuiLabel((Rectangle){panelX + 15, 255, 100, 20}, "Luz Vector Z");
+    GuiSliderBar((Rectangle){panelX + 90, 255, 120, 20}, "",
+                 TextFormat("%.2f", lightRawDir.z), &lightRawDir.z, -1.0f,
+                 1.0f);
+
+    // --- COLOR ---
+    GuiLabel((Rectangle){panelX + 15, 285, 100, 20}, "Color del Modelo:");
+    GuiColorPicker((Rectangle){panelX + 45, 285, 140, 140}, "", &colorMalla);
 
     EndDrawing();
   }
