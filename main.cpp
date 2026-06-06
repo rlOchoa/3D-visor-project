@@ -51,14 +51,15 @@ int main() {
       FilePathList archivosSoltados = LoadDroppedFiles();
       if (archivosSoltados.count > 0) {
         std::string rutaArchivo = archivosSoltados.paths[0];
-        if (IsFileExtension(rutaArchivo.c_str(), ".obj")) {
-          modeloActual = cargar_obj(rutaArchivo);
+
+        modeloActual = cargar_modelo(rutaArchivo);
+
+        if (modeloActual.vertices.size() > 0) {
           modeloCargado = true;
 
           rotacionManual = {0.0f, 0.0f, 0.0f};
           escalaManual = 1.0f;
 
-          // ALGORITMO DE AUTO-ESCALADO (Bounding Box)
           float max_val = 0.01f;
           for (const auto &v : modeloActual.vertices) {
             if (std::fabs(v.x) > max_val)
@@ -157,14 +158,14 @@ int main() {
 
     // Mensaje centrado si no hay modelo, usando las dimensiones dinámicas
     if (!modeloCargado) {
-      const char *msg = "Arrastra un archivo .obj a esta ventana";
+      const char *msg =
+          "Arrastra un archivo 3D (.obj, .fbx, .stl) a esta ventana";
       int msgWidth = MeasureText(msg, 20);
       DrawText(msg, (w - msgWidth) / 2, h / 2, 20, LIGHTGRAY);
     }
 
     float panelX = w - 240.0f;
-    GuiPanel((Rectangle){panelX, 10, 230, 500},
-             "Herramientas (Transformaciones)");
+    GuiPanel((Rectangle){panelX, 10, 230, 500}, "Herramientas");
 
     if (GuiButton((Rectangle){panelX + 15, 40, 200, 25}, "Alternar Modo")) {
       modoSolido = !modoSolido;

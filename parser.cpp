@@ -1,75 +1,74 @@
 #include "parser.h"
 #include "raymath.h"
-#include <fstream>
+#include <assimp/Importer.hpp>  // Interfaz del importador de C++
+#include <assimp/postprocess.h> // Banderas de post-procesamiento
+#include <assimp/scene.h>       // Estructura de salida de Assimp
 #include <iostream>
-#include <sstream>
 
-Modelo3D cargar_obj(const std::string &ruta_archivo) {
+Modelo3D cargar_modelo(const std::string &ruta_archivo) {
   Modelo3D modelo;
-  std::ifstream archivo(ruta_archivo);
+  Assimp::Importer importer;
 
-  if (!archivo.is_open()) {
-    std::cerr << "Error: No se pudo abrir el archivo " << ruta_archivo
-              << std::endl;
+  // Magia de Assimp: Lee el archivo y lo estandariza.
+  // - aiProcess_Triangulate: Convierte cualquier N-ágono en triángulos.
+  // - aiProcess_JoinIdenticalVertices: Optimiza la memoria de la malla.
+  const aiScene *scene = importer.ReadFile(
+      ruta_archivo, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
+
+  if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE ||
+      !scene->mRootNode) {
+    std::cerr << "Error al cargar modelo con Assimp: "
+              << importer.GetErrorString() << std::endl;
     return modelo;
   }
 
-  std::string linea;
-  while (std::getline(archivo, linea)) {
-    if (linea.empty() || linea[0] == '#')
-      continue;
+  // Para este visor ligero, asumiremos que procesamos solo la primera malla
+  // (Mesh) del archivo
+  if (scene->mNumMeshes > 0) {
+    aiMesh *mesh = scene->mMeshes[0];
 
-    std::istringstream stream_linea(linea);
-    std::string tipo;
-    stream_linea >> tipo;
-
-    if (tipo == "v") {
+    // 1. Extraer los vértices
+    for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
       Vector3 vertice;
-      stream_linea >> vertice.x >> vertice.y >> vertice.z;
+      vertice.x = mesh->mVertices[i].x;
+      vertice.y = mesh->mVertices[i].y;
+      vertice.z = mesh->mVertices[i].z;
       modelo.vertices.push_back(vertice);
-    } else if (tipo == "f") {
-      std::vector<int> vertices_cara;
-      std::string datos_vertice;
+    }
 
-      while (stream_linea >> datos_vertice) {
-        size_t pos_slash = datos_vertice.find('/');
-        std::string id_str = datos_vertice.substr(0, pos_slash);
-        vertices_cara.push_back(std::stoi(id_str) - 1);
-      }
+    // 2. Extraer las caras y calcular la Normal matemática (Cumpliendo tu
+    // protocolo)
+    for (unsigned int i = 0; i < mesh->mNumFaces; i++) {
+      aiFace face = mesh->mFaces[i];
 
-      // Triangulación en abanico y cálculo de NORMALES
-      if (vertices_cara.size() >= 3) {
-        for (size_t i = 1; i < vertices_cara.size() - 1; ++i) {
-          Cara nueva_cara;
-          nueva_cara.v1 = vertices_cara[0];
-          nueva_cara.v2 = vertices_cara[i];
-          nueva_cara.v3 = vertices_cara[i + 1];
+      // Como activamos aiProcess_Triangulate, estamos seguros de que cada cara
+      // tiene 3 índices
+      if (face.mNumIndices == 3) {
+        Cara nueva_cara;
+        nueva_cara.v1 = face.mIndices[0];
+        nueva_cara.v2 = face.mIndices[1];
+        nueva_cara.v3 = face.mIndices[2];
 
-          // Obtenemos los 3 puntos en el espacio 3D
-          Vector3 p1 = modelo.vertices[nueva_cara.v1];
-          Vector3 p2 = modelo.vertices[nueva_cara.v2];
-          Vector3 p3 = modelo.vertices[nueva_cara.v3];
+        // Reutilizamos tu matemática exacta para el cálculo de Lambert
+        Vector3 p1 = modelo.vertices[nueva_cara.v1];
+        Vector3 p2 = modelo.vertices[nueva_cara.v2];
+        Vector3 p3 = modelo.vertices[nueva_cara.v3];
 
-          // 1. Calculamos dos vectores en el plano del triángulo
-          Vector3 vectorA = Vector3Subtract(p2, p1);
-          Vector3 vectorB = Vector3Subtract(p3, p1);
+        Vector3 vectorA = Vector3Subtract(p2, p1);
+        Vector3 vectorB = Vector3Subtract(p3, p1);
+        Vector3 normal_calculada = Vector3CrossProduct(vectorA, vectorB);
 
-          // 2. Calculamos el Producto Cruz para obtener el vector perpendicular
-          Vector3 normal_calculada = Vector3CrossProduct(vectorA, vectorB);
+        nueva_cara.normal = Vector3Normalize(normal_calculada);
 
-          // 3. Normalizamos el vector (longitud = 1)
-          nueva_cara.normal = Vector3Normalize(normal_calculada);
-
-          // Guardamos la cara ya con su normal calculada
-          modelo.caras.push_back(nueva_cara);
-        }
+        modelo.caras.push_back(nueva_cara);
       }
     }
+    std::cout << "[Assimp] Modelo cargado: " << ruta_archivo << "\n"
+              << "Vértices: " << modelo.vertices.size()
+              << " | Caras: " << modelo.caras.size() << std::endl;
+  } else {
+    std::cerr << "El archivo no contiene mallas 3D validas." << std::endl;
   }
 
-  archivo.close();
-  std::cout << "Modelo cargado exitosamente. Vértices: "
-            << modelo.vertices.size()
-            << " | Caras (Triángulos): " << modelo.caras.size() << std::endl;
   return modelo;
 }

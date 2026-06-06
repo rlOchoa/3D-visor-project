@@ -1,1 +1,4 @@
-visor3D
+*.fbx
+*.obj
+*.blend
+*.bin

@@ -14,4 +14,4 @@ struct Modelo3D {
   std::vector<Cara> caras; // Reemplar caras_indices por un arreglo de Caras
 };
 
-Modelo3D cargar_obj(const std::string &ruta_archivo);
+Modelo3D cargar_modelo(const std::string &ruta_archivo);
