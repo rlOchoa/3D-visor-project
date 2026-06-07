@@ -1,0 +1,136 @@
+El documento deberá describir detalladamente el desarrollo del proyecto, desde el planteamiento del problema hasta su implementación, haciendo énfasis en las técnicas de graficación por computadora utilizadas y la justificación de las herramientas empleadas.
+
+Proyecto Final – Graficación por Computadora
+1. Introducción
+Contexto general
+Importancia de la graficación en el problema
+Descripción breve del proyecto
+2. Planteamiento del problema
+Descripción detallada del problema
+Situación actual
+Justificación
+Alcances y limitaciones
+3. Objetivos
+3.1 Objetivo general
+3.2 Objetivos específicos
+
+
+4. Marco teórico
+Conceptos fundamentales de graficación por computadora
+Técnicas utilizadas (renderizado, modelado, animación, etc.)
+Tecnologías relacionadas
+5. Propuesta de solución
+Descripción general de la solución
+Enfoque adoptado
+Justificación técnica de la propuesta
+6. Desarrollo del proyecto
+6.1 Análisis
+Requerimientos funcionales
+Requerimientos no funcionales
+Casos de uso (opcional pero recomendado)
+6.2 Diseño
+Arquitectura del sistema
+Diagramas (UML, flujo, arquitectura gráfica, etc.)
+Diseño de interfaces gráficas
+Diseño de escenas o elementos visuales
+6.3 Construcción (Implementación)
+Herramientas utilizadas (lenguajes, motores gráficos, librerías)
+Desarrollo del sistema
+Algoritmos empleados
+Que incluyan:
+
+Gráficos
+Transformaciones geométricas
+Iluminación
+Texturizado
+Pipeline gráfico
+Etc.
+
+6.4 Pruebas
+Pruebas realizadas
+Resultados obtenidos
+Validación del funcionamiento
+6.5 Implantación 
+Forma de uso del sistema
+Requisitos técnicos
+7. Resultados
+Capturas del sistema (renders, interfaces, animaciones)
+Comparación antes vs después (si aplica)
+Evaluación del logro de objetivos
+ 8. Discusión
+Ventajas de la solución
+Limitaciones
+Problemas encontrados
+ 9. Conclusiones
+Cumplimiento del objetivo general
+Aportes del proyecto
+Relación con problemas reales o futuros trabajos
+ 10. Referencias
+Formato IEEE
+Fuentes técnicas y académicas
+ 11. Anexos (opcional)
+Código relevante
+Diagramas adicionales
+Manual técnico completo
+
+
+====================================
+
+Cómo se evaluará el proyecto final
+El proyecto se evaluará considerando qué tan bien justifica, diseña y construye su solución gráfica, no sólo si funciona.
+
+Valor total: 100 puntos
+✅ 1. Problema y objetivos (20 pts)
+Debe explicar claramente:
+
+Qué problema está resolviendo
+Por qué es importante
+Qué quiere lograr
+👉 Evitar cosas generales, ser específico.
+
+✅ 2. Marco teórico (10 pts)
+Incluya conceptos de graficación usados en su proyecto, por ejemplo:
+
+Transformaciones
+Renderizado
+Iluminación
+Modelado
+👉 No es copiar teoría: debe relacionarla con su proyecto.
+
+✅ 3. Propuesta de solución (10 pts)
+Explicar:
+
+Cómo resolvió el problema
+Por qué elegió esa solución
+✅ 4. Desarrollo del sistema (40 pts)
+🔹 Análisis
+Qué necesita hacer el sistema
+🔹 Diseño
+Diagramas / arquitectura
+Interfaz o escena
+🔹 Construcción
+Cómo lo programó
+Herramientas usadas
+🔹 Graficación (IMPORTANTE)
+Debe demostrar uso de:
+
+Transformaciones
+Iluminación
+Texturas
+Algoritmos gráficos
+👉 Este es el criterio más importante.
+
+✅ 5. Pruebas y resultados (10 pts)
+Evidencias del sistema funcionando
+Capturas, renders o animaciones
+✅ 6. Discusión y conclusiones (10 pts)
+Qué funcionó bien
+Qué problemas encontró
+Si cumplió los objetivos
+✅ 7. Referencias y redacción (10 pts)
+Fuentes correctamente citadas
+Documento claro y ordenado
+Consejos
+No basta con que el programa funcione 
+Debe explicar cómo y por qué lo hizo 
+Lo más importante en esta materia es cómo aplica la graficación 

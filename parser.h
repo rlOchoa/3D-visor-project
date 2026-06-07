@@ -5,8 +5,9 @@
 
 // Nueva estructura para guardar una cara completa
 struct Cara {
-  int v1, v2, v3; // Indices de los vertices
-  Vector3 normal; // El vector normal calculado para esta cara
+  int v1, v2, v3;        // Indices de los vertices
+  Vector3 normal;        // El vector normal calculado para esta cara
+  Vector2 uv1, uv2, uv3; // Almacenamiento de coordenadas para textura
 };
 
 struct Modelo3D {

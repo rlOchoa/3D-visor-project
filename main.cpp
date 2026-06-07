@@ -1,6 +1,7 @@
 #include "parser.h"
 #include "raylib.h"
 #include "raymath.h"
+#include "rlgl.h" // Low level lib, inyeccion de texturas manuales
 #include <cmath>
 #include <string>
 
@@ -22,6 +23,8 @@ int main() {
 
   Modelo3D modeloActual;
   bool modeloCargado = false;
+  Texture2D texturaActual = {0};
+  bool usarTextura = false;
 
   Camera3D camera = {};
   camera.position = (Vector3){15.0f, 15.0f, 15.0f};
@@ -30,11 +33,12 @@ int main() {
   camera.fovy = 45.0f;
   camera.projection = CAMERA_PERSPECTIVE;
 
-  SetTargetFPS(144);
+  // SetTargetFPS(144);
 
   // --- VARIABLES DE ESTADO PARA UI ---
-  Color colorMalla = {50, 114, 172, 255};
+  Color colorModelo = {50, 114, 172, 255};
   Vector3 rotacionManual = {0.0f, 0.0f, 0.0f};
+  Vector3 traslacionManual = {0.0f, 0.0f, 0.0f};
   float escalaManual = 1.0f;
   float escalaBase = 1.0f;
   bool modoSolido = false;
@@ -52,40 +56,55 @@ int main() {
       if (archivosSoltados.count > 0) {
         std::string rutaArchivo = archivosSoltados.paths[0];
 
-        modeloActual = cargar_modelo(rutaArchivo);
+        // Si es Modelo 3D
+        if (IsFileExtension(rutaArchivo.c_str(), ".obj") ||
+            IsFileExtension(rutaArchivo.c_str(), ".fbx") ||
+            IsFileExtension(rutaArchivo.c_str(), ".stl")) {
+          modeloActual = cargar_modelo(rutaArchivo);
+          if (modeloActual.vertices.size() > 0) {
+            modeloCargado = true;
+            rotacionManual = {0.0f, 0.0f, 0.0f};
+            traslacionManual = {0.0f, 0.0f, 0.0f};
+            escalaManual = 1.0f;
 
-        if (modeloActual.vertices.size() > 0) {
-          modeloCargado = true;
-
-          rotacionManual = {0.0f, 0.0f, 0.0f};
-          escalaManual = 1.0f;
-
-          float max_val = 0.01f;
-          for (const auto &v : modeloActual.vertices) {
-            if (std::fabs(v.x) > max_val)
-              max_val = std::fabs(v.x);
-            if (std::fabs(v.y) > max_val)
-              max_val = std::fabs(v.y);
-            if (std::fabs(v.z) > max_val)
-              max_val = std::fabs(v.z);
+            float max_val = 0.01f;
+            for (const auto &v : modeloActual.vertices) {
+              if (std::fabs(v.x) > max_val)
+                max_val = std::fabs(v.x);
+              if (std::fabs(v.y) > max_val)
+                max_val = std::fabs(v.y);
+              if (std::fabs(v.z) > max_val)
+                max_val = std::fabs(v.z);
+            }
+            escalaBase = 15.0f / max_val;
           }
-          escalaBase = 15.0f / max_val;
+        }
+
+        // Si es Imagen 2D (Textura)
+        else if (IsFileExtension(rutaArchivo.c_str(), ".png") ||
+                 IsFileExtension(rutaArchivo.c_str(), ".jpg")) {
+          if (texturaActual.id != 0)
+            UnloadTexture(texturaActual);
+          texturaActual = LoadTexture(rutaArchivo.c_str());
+          usarTextura = true;
         }
       }
       UnloadDroppedFiles(archivosSoltados);
     }
 
     UpdateCamera(&camera, CAMERA_ORBITAL);
+
     if (IsKeyPressed(KEY_SPACE))
       modoSolido = !modoSolido;
 
-    // MATRIZ DE TRANSFORMACIÓN AFÍN (Tema 1.3)
+    // PIPELINE MATRICIAL: Rotacion y Traslacion
     Matrix matRotacion = MatrixRotateXYZ((Vector3){rotacionManual.x * DEG2RAD,
                                                    rotacionManual.y * DEG2RAD,
                                                    rotacionManual.z * DEG2RAD});
+    Matrix matTraslacion = MatrixTranslate(
+        traslacionManual.x, traslacionManual.y, traslacionManual.z);
 
     float escalaFinal = escalaBase * escalaManual;
-
     Vector3 lightDir = Vector3Normalize(lightRawDir);
 
     BeginDrawing();
@@ -95,28 +114,29 @@ int main() {
 
     if (modeloCargado) {
       for (const auto &cara : modeloActual.caras) {
-
         // Vértices originales.
         Vector3 v1 = modeloActual.vertices[cara.v1];
         Vector3 v2 = modeloActual.vertices[cara.v2];
         Vector3 v3 = modeloActual.vertices[cara.v3];
 
-        // Transformación de rotación (Multiplicación por Matriz)
+        // 1. Rotacion
         v1 = Vector3Transform(v1, matRotacion);
         v2 = Vector3Transform(v2, matRotacion);
         v3 = Vector3Transform(v3, matRotacion);
 
-        // Transformación de escala uniforme
+        // 2. Escala
         v1 = Vector3Scale(v1, escalaFinal);
         v2 = Vector3Scale(v2, escalaFinal);
         v3 = Vector3Scale(v3, escalaFinal);
 
+        // 3. Traslacion
+        v1 = Vector3Transform(v1, matTraslacion);
+        v2 = Vector3Transform(v2, matTraslacion);
+        v3 = Vector3Transform(v3, matTraslacion);
+
         if (modoSolido) {
-          // Rotar el vector normal para que la luz reaccione al giro
           Vector3 normalRotada = Vector3Transform(cara.normal, matRotacion);
 
-          // El producto punto nos da el coseno del ángulo entre normal y
-          // luz
           float dot = Vector3DotProduct(normalRotada, lightDir);
           if (dot < 0.0f)
             dot = 0.0f; // Evitamos luz negativa
@@ -125,21 +145,37 @@ int main() {
           // total)
           float intensidad = (dot * 0.7f) + 0.3f;
 
-          Color colorFinal = {(unsigned char)(colorMalla.r * intensidad),
-                              (unsigned char)(colorMalla.g * intensidad),
-                              (unsigned char)(colorMalla.b * intensidad),
-                              colorMalla.a};
+          Color colorFinal = {(unsigned char)(colorModelo.r * intensidad),
+                              (unsigned char)(colorModelo.g * intensidad),
+                              (unsigned char)(colorModelo.b * intensidad),
+                              colorModelo.a};
 
-          DrawTriangle3D(v1, v2, v3, colorFinal);
+          if (usarTextura && texturaActual.id != 0) {
+            rlSetTexture(texturaActual.id);
+            rlBegin(RL_TRIANGLES);
+            rlColor4ub(colorFinal.r, colorFinal.g, colorFinal.b, colorFinal.a);
+
+            rlTexCoord2f(cara.uv1.x, cara.uv1.y);
+            rlVertex3f(v1.x, v1.y, v1.z);
+            rlTexCoord2f(cara.uv2.x, cara.uv2.y);
+            rlVertex3f(v2.x, v2.y, v2.z);
+            rlTexCoord2f(cara.uv3.x, cara.uv3.y);
+            rlVertex3f(v3.x, v3.y, v3.z);
+
+            rlEnd();
+            rlSetTexture(0);
+          } else {
+            DrawTriangle3D(v1, v2, v3, colorFinal);
+          }
 
           // Líneas de contorno sutiles para resaltar la geometría
           DrawLine3D(v1, v2, (Color){30, 30, 30, 100});
           DrawLine3D(v2, v3, (Color){30, 30, 30, 100});
           DrawLine3D(v3, v1, (Color){30, 30, 30, 100});
         } else {
-          DrawLine3D(v1, v2, colorMalla);
-          DrawLine3D(v2, v3, colorMalla);
-          DrawLine3D(v3, v1, colorMalla);
+          DrawLine3D(v1, v2, colorModelo);
+          DrawLine3D(v2, v3, colorModelo);
+          DrawLine3D(v3, v1, colorModelo);
         }
       }
     }
@@ -152,67 +188,84 @@ int main() {
     int h = GetScreenHeight();
 
     DrawFPS(10, 10);
-    const char *textoModo =
-        modoSolido ? "Modo Actual: Solido" : "Modo Actual: Malla";
-    DrawText(textoModo, 10, 35, 14, LIGHTGRAY);
+    DrawText(modoSolido ? "Modo: Solido" : "Modo: Malla", 10, 35, 14,
+             LIGHTGRAY);
 
     // Mensaje centrado si no hay modelo, usando las dimensiones dinámicas
     if (!modeloCargado) {
-      const char *msg =
-          "Arrastra un archivo 3D (.obj, .fbx, .stl) a esta ventana";
-      int msgWidth = MeasureText(msg, 20);
-      DrawText(msg, (w - msgWidth) / 2, h / 2, 20, LIGHTGRAY);
+      const char *msg = "Arrastra un archivo 3D (.obj, .fbx, .stl) o una "
+                        "imagen (.png, .jpg) aquí";
+      DrawText(msg, (w - MeasureText(msg, 20)) / 2, h / 2, 20, LIGHTGRAY);
     }
 
     float panelX = w - 240.0f;
-    GuiPanel((Rectangle){panelX, 10, 230, 500}, "Herramientas");
+    GuiPanel((Rectangle){panelX, 10, 230, 620}, "Herramientas");
 
-    if (GuiButton((Rectangle){panelX + 15, 40, 200, 25}, "Alternar Modo")) {
+    if (GuiButton((Rectangle){panelX + 15, 35, 200, 25}, "Alternar Modo")) {
       modoSolido = !modoSolido;
     }
 
-    // --- TRASNFORMACIONES ---
-    GuiLabel((Rectangle){panelX + 15, 75, 100, 20}, "Rotacion X");
-    GuiSliderBar((Rectangle){panelX + 90, 75, 120, 20}, "",
+    // --- ROTACION ---
+    GuiLabel((Rectangle){panelX + 15, 65, 100, 20}, "Rotacion X");
+    GuiSliderBar((Rectangle){panelX + 90, 65, 120, 20}, "",
                  TextFormat("%.0f", rotacionManual.x), &rotacionManual.x, 0.0f,
                  360.0f);
 
-    GuiLabel((Rectangle){panelX + 15, 105, 100, 20}, "Rotacion Y");
-    GuiSliderBar((Rectangle){panelX + 90, 105, 120, 20}, "",
+    GuiLabel((Rectangle){panelX + 15, 90, 100, 20}, "Rotacion Y");
+    GuiSliderBar((Rectangle){panelX + 90, 90, 120, 20}, "",
                  TextFormat("%.0f", rotacionManual.y), &rotacionManual.y, 0.0f,
                  360.0f);
 
-    GuiLabel((Rectangle){panelX + 15, 135, 100, 20}, "Rotacion Z");
-    GuiSliderBar((Rectangle){panelX + 90, 135, 120, 20}, "",
+    GuiLabel((Rectangle){panelX + 15, 115, 100, 20}, "Rotacion Z");
+    GuiSliderBar((Rectangle){panelX + 90, 115, 120, 20}, "",
                  TextFormat("%.0f", rotacionManual.z), &rotacionManual.z, 0.0f,
                  360.0f);
 
-    GuiLabel((Rectangle){panelX + 15, 165, 100, 20}, "Escala");
-    GuiSliderBar((Rectangle){panelX + 90, 165, 120, 20}, "",
+    // --- TRASLACION ---
+    GuiLabel((Rectangle){panelX + 15, 145, 100, 20}, "Traslacion X");
+    GuiSliderBar((Rectangle){panelX + 90, 145, 120, 20}, "",
+                 TextFormat("%.1f", traslacionManual.x), &traslacionManual.x,
+                 -20.0f, 20.0f);
+    GuiLabel((Rectangle){panelX + 15, 170, 100, 20}, "Traslacion Y");
+    GuiSliderBar((Rectangle){panelX + 90, 170, 120, 20}, "",
+                 TextFormat("%.1f", traslacionManual.y), &traslacionManual.y,
+                 -20.0f, 20.0f);
+    GuiLabel((Rectangle){panelX + 15, 195, 100, 20}, "Traslacion Z");
+    GuiSliderBar((Rectangle){panelX + 90, 195, 120, 20}, "",
+                 TextFormat("%.1f", traslacionManual.z), &traslacionManual.z,
+                 -20.0f, 20.0f);
+
+    // --- ESCALA ---
+    GuiLabel((Rectangle){panelX + 15, 225, 100, 20}, "Escala");
+    GuiSliderBar((Rectangle){panelX + 90, 225, 120, 20}, "",
                  TextFormat("%.2fx", escalaManual), &escalaManual, 0.1f, 3.0f);
 
     // --- ILUMINACION DINÁMICA ---
-    GuiLabel((Rectangle){panelX + 15, 195, 100, 20}, "Luz Vector X");
-    GuiSliderBar((Rectangle){panelX + 90, 195, 120, 20}, "",
+    GuiLabel((Rectangle){panelX + 15, 260, 100, 20}, "Luz Vector X");
+    GuiSliderBar((Rectangle){panelX + 90, 260, 120, 20}, "",
                  TextFormat("%.2f", lightRawDir.x), &lightRawDir.x, 0.0f, 1.0f);
 
-    GuiLabel((Rectangle){panelX + 15, 225, 100, 20}, "Luz Vector Y");
-    GuiSliderBar((Rectangle){panelX + 90, 225, 120, 20}, "",
+    GuiLabel((Rectangle){panelX + 15, 285, 100, 20}, "Luz Vector Y");
+    GuiSliderBar((Rectangle){panelX + 90, 285, 120, 20}, "",
                  TextFormat("%.2f", lightRawDir.y), &lightRawDir.y, -1.0f,
                  1.0f);
 
-    GuiLabel((Rectangle){panelX + 15, 255, 100, 20}, "Luz Vector Z");
-    GuiSliderBar((Rectangle){panelX + 90, 255, 120, 20}, "",
+    GuiLabel((Rectangle){panelX + 15, 310, 100, 20}, "Luz Vector Z");
+    GuiSliderBar((Rectangle){panelX + 90, 310, 120, 20}, "",
                  TextFormat("%.2f", lightRawDir.z), &lightRawDir.z, -1.0f,
                  1.0f);
 
     // --- COLOR ---
-    GuiLabel((Rectangle){panelX + 15, 285, 100, 20}, "Color del Modelo:");
-    GuiColorPicker((Rectangle){panelX + 45, 285, 140, 140}, "", &colorMalla);
+    GuiLabel((Rectangle){panelX + 15, 340, 100, 20}, "Color / Tinte:");
+    GuiColorPicker((Rectangle){panelX + 45, 365, 140, 140}, "", &colorModelo);
+    GuiCheckBox((Rectangle){panelX + 15, 520, 20, 20}, "Activar Textura 2D",
+                &usarTextura);
 
     EndDrawing();
   }
 
+  if (texturaActual.id != 0)
+    UnloadTexture(texturaActual);
   CloseWindow();
   return 0;
 }

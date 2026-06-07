@@ -25,6 +25,9 @@ Modelo3D cargar_modelo(const std::string &ruta_archivo) {
   if (scene->mNumMeshes > 0) {
     aiMesh *mesh = scene->mMeshes[0];
 
+    // Verificamos si el modelo contiene mapas UV
+    bool tieneUVs = mesh->HasTextureCoords(0);
+
     // 1. Extraer los vértices
     for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
       Vector3 vertice;
@@ -56,6 +59,20 @@ Modelo3D cargar_modelo(const std::string &ruta_archivo) {
         Vector3 normal_calculada = Vector3CrossProduct(vectorA, vectorB);
 
         nueva_cara.normal = Vector3Normalize(normal_calculada);
+
+        // Extraemos las coordenadas 2D si existen en el modelo
+        if (tieneUVs) {
+          nueva_cara.uv1 = {mesh->mTextureCoords[0][nueva_cara.v1].x,
+                            mesh->mTextureCoords[0][nueva_cara.v1].y};
+          nueva_cara.uv2 = {mesh->mTextureCoords[0][nueva_cara.v2].x,
+                            mesh->mTextureCoords[0][nueva_cara.v2].y};
+          nueva_cara.uv3 = {mesh->mTextureCoords[0][nueva_cara.v3].x,
+                            mesh->mTextureCoords[0][nueva_cara.v3].y};
+        } else {
+          nueva_cara.uv1 = {0.0f, 0.0f};
+          nueva_cara.uv2 = {0.0f, 0.0f};
+          nueva_cara.uv3 = {0.0f, 0.0f};
+        }
 
         modelo.caras.push_back(nueva_cara);
       }
