@@ -9,7 +9,6 @@ Modelo3D cargar_modelo(const std::string &ruta_archivo) {
   Modelo3D modelo;
   Assimp::Importer importer;
 
-  // Magia de Assimp: Lee el archivo y lo estandariza.
   // - aiProcess_Triangulate: Convierte cualquier N-ágono en triángulos.
   // - aiProcess_JoinIdenticalVertices: Optimiza la memoria de la malla.
   const aiScene *scene = importer.ReadFile(
@@ -22,8 +21,7 @@ Modelo3D cargar_modelo(const std::string &ruta_archivo) {
     return modelo;
   }
 
-  // Para este visor ligero, asumiremos que procesamos solo la primera malla
-  // (Mesh) del archivo
+  // Mesh del archivo
   if (scene->mNumMeshes > 0) {
     aiMesh *mesh = scene->mMeshes[0];
 
@@ -36,12 +34,11 @@ Modelo3D cargar_modelo(const std::string &ruta_archivo) {
       modelo.vertices.push_back(vertice);
     }
 
-    // 2. Extraer las caras y calcular la Normal matemática (Cumpliendo tu
-    // protocolo)
+    // 2. Extraer las caras y calcular la Normal
     for (unsigned int i = 0; i < mesh->mNumFaces; i++) {
       aiFace face = mesh->mFaces[i];
 
-      // Como activamos aiProcess_Triangulate, estamos seguros de que cada cara
+      // Al activar aiProcess_Triangulate, estamos seguros de que cada cara
       // tiene 3 índices
       if (face.mNumIndices == 3) {
         Cara nueva_cara;
@@ -49,7 +46,7 @@ Modelo3D cargar_modelo(const std::string &ruta_archivo) {
         nueva_cara.v2 = face.mIndices[1];
         nueva_cara.v3 = face.mIndices[2];
 
-        // Reutilizamos tu matemática exacta para el cálculo de Lambert
+        // Lambert
         Vector3 p1 = modelo.vertices[nueva_cara.v1];
         Vector3 p2 = modelo.vertices[nueva_cara.v2];
         Vector3 p3 = modelo.vertices[nueva_cara.v3];
