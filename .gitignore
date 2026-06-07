@@ -1,4 +1,11 @@
+#Ignore file extensions
 *.fbx
 *.obj
 *.blend
 *.bin
+
+#Ignore specific files
+visor3D
+build.sh
+build_msys.sh
+build_windows.sh
